@@ -1303,12 +1303,36 @@ function advance(now: number, hidden: boolean) {
   online?.sendState(now);
 }
 
+// ------------------------------------------------------------------ cursor
+
+/** The mouse position over the canvas, in logical pixels; null when it's elsewhere. */
+let mouseAt: { x: number; y: number } | null = null;
+canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  mouseAt = { x: e.offsetX / cssScale, y: e.offsetY / cssScale };
+});
+canvas.addEventListener('pointerleave', () => (mouseAt = null));
+
+/**
+ * Hides the mouse cursor while it's over a well where pieces are falling, so it never covers them;
+ * it shows again over the side panel, and everywhere once the game is paused or over. Checked every
+ * frame, since the game can pause or end while the mouse stays still.
+ */
+function updateCursor() {
+  const m = mouseAt;
+  const rects = m && state === 'game' && game ? game.liveRects() : [];
+  const hide = rects.some((r) => m!.x >= r.x && m!.x < r.x + r.w && m!.y >= r.y && m!.y < r.y + r.h);
+  const cursor = hide ? 'none' : '';
+  if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+}
+
 function frame(now: number) {
   pollPadPresses((code) => {
     if (menu.active || code === 'Enter') handleKey(code);
   });
   advance(now, false);
   draw(Math.min(1, acc / STEP));
+  updateCursor();
   requestAnimationFrame(frame);
 }
 

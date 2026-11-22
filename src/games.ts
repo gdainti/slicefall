@@ -20,6 +20,11 @@ export interface Rect {
   h: number;
 }
 
+/** A field's well plus its frame, for hiding the mouse cursor over it during play. */
+function wellRect(f: { width: number }, at: { x: number; y: number }): Rect {
+  return { x: at.x - 6, y: at.y - 6, w: f.width + 12, h: C.FIELD_HEIGHT + 12 };
+}
+
 function eventSound(e: FieldEvent) {
   switch (e) {
     case 'land':
@@ -84,6 +89,12 @@ export class SingleGame {
 
   start() {
     this.field.start();
+  }
+
+  /** The wells where pieces are falling right now (no cursor over them); empty when paused or over. */
+  liveRects(): Rect[] {
+    const s = this.field.state;
+    return !this.paused && (s === 'playing' || s === 'cutting') ? [wellRect(this.field, SINGLE_FIELD)] : [];
   }
 
   private onEvent(e: FieldEvent) {
@@ -203,6 +214,12 @@ export class VersusGame {
 
   start() {
     /* countdown runs in update() */
+  }
+
+  /** The wells where pieces are falling right now (no cursor over them); empty when paused or over. */
+  liveRects(): Rect[] {
+    if (this.paused || this.phase !== 'playing') return [];
+    return this.fields.flatMap((f, i) => (f.state === 'playing' || f.state === 'cutting' ? [wellRect(f, VersusGame.AT[i])] : []));
   }
 
   private onEvent(player: 0 | 1, e: FieldEvent) {
@@ -369,6 +386,12 @@ export class OnlineGame {
 
   start() {
     /* countdown runs in update() */
+  }
+
+  /** This player's well while pieces fall in it (no cursor over it); empty once the round is over. */
+  liveRects(): Rect[] {
+    const s = this.field.state;
+    return !this.paused && this.phase === 'playing' && (s === 'playing' || s === 'cutting') ? [wellRect(this.field, SINGLE_FIELD)] : [];
   }
 
   receive(msg: StateMsg) {
