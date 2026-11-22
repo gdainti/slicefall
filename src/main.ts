@@ -1305,23 +1305,32 @@ function advance(now: number, hidden: boolean) {
 
 // ------------------------------------------------------------------ cursor
 
-/** The mouse position over the canvas, in logical pixels; null when it's elsewhere. */
+/**
+ * The mouse position in the window; null when it's outside. Tracked on the window rather than the
+ * canvas, since a menu over the canvas would hide the moves made before a game starts.
+ */
 let mouseAt: { x: number; y: number } | null = null;
-canvas.addEventListener('pointermove', (e) => {
-  if (e.pointerType !== 'mouse') return;
-  mouseAt = { x: e.offsetX / cssScale, y: e.offsetY / cssScale };
-});
-canvas.addEventListener('pointerleave', () => (mouseAt = null));
+const trackMouse = (e: PointerEvent) => {
+  if (e.pointerType === 'mouse') mouseAt = { x: e.clientX, y: e.clientY };
+};
+window.addEventListener('pointermove', trackMouse);
+window.addEventListener('pointerdown', trackMouse);
+document.documentElement.addEventListener('pointerleave', () => (mouseAt = null));
 
 /**
  * Hides the mouse cursor while it's over a well where pieces are falling, so it never covers them;
  * it shows again over the side panel, and everywhere once the game is paused or over. Checked every
- * frame, since the game can pause or end while the mouse stays still.
+ * frame, since the game can start, pause or end while the mouse stays still.
  */
 function updateCursor() {
-  const m = mouseAt;
-  const rects = m && state === 'game' && game ? game.liveRects() : [];
-  const hide = rects.some((r) => m!.x >= r.x && m!.x < r.x + r.w && m!.y >= r.y && m!.y < r.y + r.h);
+  const rects = mouseAt && state === 'game' && game ? game.liveRects() : [];
+  let hide = false;
+  if (rects.length) {
+    const box = canvas.getBoundingClientRect();
+    const x = (mouseAt!.x - box.left) / cssScale;
+    const y = (mouseAt!.y - box.top) / cssScale;
+    hide = rects.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+  }
   const cursor = hide ? 'none' : '';
   if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
 }
