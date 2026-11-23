@@ -222,14 +222,12 @@ export interface GameTotals {
   avgScore: number;
 }
 
-/** Public counts shown with the leaderboard. */
+/** Games started and names on the board, for the stats page and admin notes. */
 export interface BoardStats {
   /** Games started, finished or not */
   started: number;
   /** Different names with a score on the board (not the shared ANON) */
   names: number;
-  /** Rows cleared in every logged game, scored or not */
-  lines: number;
 }
 
 export class ScoreDb {
@@ -429,7 +427,7 @@ export class ScoreDb {
       .get(since?.getTime() ?? 0) as unknown as GameTotals;
   }
 
-  /** Games started, lines cleared and names on the board since `since` (or ever), for the leaderboard. */
+  /** Games started and names on the board since `since` (or ever). */
   boardStats(mode: Mode, since: Date | null): BoardStats {
     const from = since?.getTime() ?? 0;
     const { started } = this.sql.prepare('SELECT COUNT(*) AS started FROM game_start WHERE started_at >= ?').get(from) as {
@@ -438,10 +436,7 @@ export class ScoreDb {
     const { names } = this.sql
       .prepare('SELECT COUNT(DISTINCT name) AS names FROM score WHERE mode = ? AND created_at >= ? AND name <> ?')
       .get(mode, from, ANON) as { names: number };
-    const { lines } = this.sql
-      .prepare('SELECT COALESCE(SUM(lines), 0) AS lines FROM game WHERE mode = ? AND created_at >= ?')
-      .get(mode, from) as { lines: number };
-    return { started, names, lines };
+    return { started, names };
   }
 
   /**
@@ -464,7 +459,7 @@ export class ScoreDb {
       .all(since?.getTime() ?? 0, limit);
   }
 
-  /** Starts, logged games, devices and play per UTC day since `since`, oldest day first (for /all-stats). */
+  /** Starts, logged games, devices and play per UTC day since `since`, oldest day first (for /stats). */
   activityByDay(since: Date) {
     return this.sql
       .prepare(
@@ -518,7 +513,7 @@ export class ScoreDb {
     return (this.sql.prepare('SELECT score FROM game').all() as { score: number }[]).map((r) => r.score);
   }
 
-  /** Every player id seen, most recently active first, with what they did (for /all-stats). */
+  /** Every player id seen, most recently active first, with what they did (for /stats). */
   players(limit: number) {
     return this.sql
       .prepare(
@@ -553,7 +548,7 @@ export class ScoreDb {
     }[];
   }
 
-  /** Every name on the board, best first: its scores and the player ids it came from (for /all-stats). */
+  /** Every name on the board, best first: its scores and the player ids it came from (for /stats). */
   names() {
     return this.sql
       .prepare(

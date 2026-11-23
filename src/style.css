@@ -580,15 +580,6 @@ table.board td.sub {
   font-weight: 700;
 }
 
-.boardstats {
-  margin: calc(var(--s) * 2px) 0 0;
-  min-height: 1.4em;
-  text-align: center;
-  color: var(--dim);
-  font-size: calc(var(--s) * 11px);
-  font-variant-numeric: tabular-nums;
-}
-
 .rankline.warn {
   margin: 0 0 calc(var(--s) * 10px);
   color: var(--danger, #ff5c7a);
