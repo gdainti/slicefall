@@ -1,4 +1,4 @@
-// The /all-stats page: every statistic the database holds on one server-rendered page, for the
+// The /stats page: every statistic the database holds on one server-rendered page, for the
 // site's owner. Not linked from the game, and behind a password (app.ts). Charts are plain SVG with
 // <title> tooltips, so the page needs no script (the Content-Security-Policy allows no inline ones).
 

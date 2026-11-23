@@ -29,11 +29,11 @@ export interface AppOptions {
   /** Reports for the events chat (POST /api/events) allowed per IP per window. */
   eventRateLimit?: { max: number; windowMs: number };
   /**
-   * Password for the /all-stats page (HTTP Basic auth, any user name). Without one the page is off
+   * Password for the /stats page (HTTP Basic auth, any user name). Without one the page is off
    * and answers 404, like any unknown path.
    */
   statsPassword?: string;
-  /** Wrong /all-stats passwords allowed per IP per window. */
+  /** Wrong /stats passwords allowed per IP per window. */
   statsRateLimit?: { max: number; windowMs: number };
   /** Posts to the events chat (notifier.ts). Default: nothing is posted. */
   notify?: Notify;
@@ -244,7 +244,6 @@ export function createApp(opts: AppOptions): AppServer {
       weekStart: since.toISOString(),
       week: db.board(mode, since, BOARD_SIZE),
       allTime: db.board(mode, null, BOARD_SIZE),
-      stats: { week: db.boardStats(mode, since), allTime: db.boardStats(mode, null) },
     };
   };
 
@@ -346,7 +345,7 @@ export function createApp(opts: AppOptions): AppServer {
 
     if (path.startsWith('/api/')) return json(res, 404, { error: 'not found' });
 
-    if (path === '/all-stats' && statsKey) {
+    if (path === '/stats' && statsKey) {
       if (!read) return send(res, 405, 'Method not allowed', { 'Content-Type': 'text/plain' });
       const ip = rateKey(clientIp(req));
       const t = now().getTime();

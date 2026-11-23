@@ -4,7 +4,7 @@
 //   PORT            default 5034
 //   STATIC_DIR      the built game, default dist (set it empty to serve the API only)
 //   ADDRESS_HEADER  header with the client IP behind a reverse proxy, e.g. x-forwarded-for
-//   STATS_PASSWORD  password for the /all-stats page (HTTP Basic auth, any user name); empty = page off
+//   STATS_PASSWORD  password for the /stats page (HTTP Basic auth, any user name); empty = page off
 //   TG_PIGEON_URL   tg-pigeon base URL for events chat reports, e.g. http://tg-pigeon:5040 (empty = off)
 //   TG_PIGEON_TOKEN tg-pigeon's API_TOKEN (empty = off). Only production (NODE_ENV=production) posts.
 
@@ -22,7 +22,7 @@ if (staticDir !== '' && !serveStatic) console.warn(`[slicefall] ${staticDir}/ no
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
 const { notify, why } = notifierFromEnv(process.env);
 console.log(`[slicefall] events chat notifications ${why}`);
-console.log(`[slicefall] /all-stats ${process.env.STATS_PASSWORD ? 'on (password set)' : 'off (no STATS_PASSWORD)'}`);
+console.log(`[slicefall] /stats ${process.env.STATS_PASSWORD ? 'on (password set)' : 'off (no STATS_PASSWORD)'}`);
 
 const db = new ScoreDb(dbFile);
 const server = createApp({

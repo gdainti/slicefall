@@ -27,15 +27,6 @@ export interface Boards {
   weekStart: string;
   week: BoardEntry[];
   allTime: BoardEntry[];
-  /** Games started (finished or not) and names on each board; absent from an older server */
-  stats?: { week: BoardStats; allTime: BoardStats };
-}
-
-export interface BoardStats {
-  started: number;
-  names: number;
-  /** Lines cleared in all logged games; absent from an older server */
-  lines?: number;
 }
 
 export interface Submitted extends Boards {

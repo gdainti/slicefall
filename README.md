@@ -70,7 +70,7 @@ names and devices can be found from either side. Logging allows 60 games per IP 
 Every game start is kept too (`game_start`), finished or not, so the leaderboard can show how many
 games were started and how many names are on it.
 
-**Stats page.** Set `STATS_PASSWORD` in `.env` and open `/all-stats`: the browser asks for the
+**Stats page.** Set `STATS_PASSWORD` in `.env` and open `/stats`: the browser asks for the
 password (any user name). One page lists everything below with charts: totals, games started per
 day and by hour, devices, time played, score distribution, leaderboards, every name and player id,
 the latest games and online rounds. Nothing in the game links to it, it is never cached or
