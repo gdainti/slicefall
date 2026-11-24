@@ -78,10 +78,10 @@ describe('online rooms', () => {
   });
 
   /** Opens a room and joins it; returns both players once both got their start. */
-  async function pair(ids: [unknown, unknown] = [undefined, undefined], attacks?: boolean, pieces?: unknown) {
+  async function pair(ids: [unknown, unknown] = [undefined, undefined], attacks?: boolean, pieces?: unknown, hold?: unknown) {
     const a = new Client(url);
     await a.opened;
-    a.send({ t: 'create', player: ids[0], attacks, pieces });
+    a.send({ t: 'create', player: ids[0], attacks, pieces, hold });
     const room = await a.next();
     assert.equal(room.t, 'room');
     const b = new Client(url);
@@ -317,6 +317,21 @@ describe('online rooms', () => {
       const r = await pair(undefined, undefined, asked);
       assert.equal(r.sa.pieces, 'random', String(asked));
       assert.equal(r.sb.pieces, 'random', String(asked));
+      r.a.close();
+      r.b.close();
+    }
+  });
+
+  test('start passes on the host hold setting: on only when asked for', async () => {
+    const on = await pair(undefined, undefined, undefined, true);
+    assert.equal(on.sa.hold, true);
+    assert.equal(on.sb.hold, true);
+    on.a.close();
+    on.b.close();
+    for (const asked of [undefined, false, 'yes', 1]) {
+      const r = await pair(undefined, undefined, undefined, asked);
+      assert.equal(r.sa.hold, false, String(asked));
+      assert.equal(r.sb.hold, false, String(asked));
       r.a.close();
       r.b.close();
     }

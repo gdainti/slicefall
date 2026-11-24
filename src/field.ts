@@ -29,6 +29,8 @@ export interface Controls {
   moveX?: number;
   /** Analog push down from the touch joystick, 0 (none) to 1 (full); overrides down when set. */
   drop?: number;
+  /** Hold: swaps the falling piece with the held one (or puts it away and brings the next). A press, not a hold. */
+  hold?: boolean;
 }
 
 /** free: rotate keys apply torque, so pieces turn to any angle; quarter: each press turns a quarter turn */
@@ -95,6 +97,8 @@ interface FieldOptions {
   attack?: (blocks: number) => void;
   /** How the rotate controls turn the falling piece (default free) */
   rotation?: Rotation;
+  /** Hold can be used (default off) */
+  hold?: boolean;
 }
 
 const PX = C.PX_PER_M;
@@ -109,6 +113,12 @@ export class Field {
   pieces: Piece[] = [];
   active: Piece | null = null;
   nextKind: number;
+  /** Hold can be used in this game (a setting) */
+  readonly holdEnabled: boolean;
+  /** The piece put away with hold, or null while there is none */
+  heldKind: number | null = null;
+  /** Hold was used for the falling piece: it can't be used again until a piece lands */
+  holdUsed = false;
   speed = C.BASE_SPEED;
 
   score = 0;
@@ -158,12 +168,15 @@ export class Field {
   private targetAngle = 0;
   /** 90° rotation: which way rotate was held last step (-1, 0, 1), so holding it turns only once */
   private rotHeld = 0;
+  /** Hold was pressed last step, so keeping it down holds only once */
+  private holdDown = false;
 
   constructor(opts: FieldOptions) {
     this.pickKind = opts.pickKind;
     this.emit = opts.emit ?? (() => {});
     this.attack = opts.attack ?? null;
     this._rotation = opts.rotation ?? 'free';
+    this.holdEnabled = opts.hold ?? false;
     this.left = 56;
     this.right = 384;
     this.nextKind = this.pickKind();
@@ -267,9 +280,11 @@ export class Field {
     this.spawn();
   }
 
-  private spawn() {
-    const kind = this.nextKind;
-    this.nextKind = this.pickKind();
+  private spawn(kind?: number) {
+    if (kind === undefined) {
+      kind = this.nextKind;
+      this.nextKind = this.pickKind();
+    }
     const p = this.createPiece(kind, PIECE_SHAPES[kind], C.SPAWN_X, C.SPAWN_Y, 0);
     p.body.setLinearVelocity(Vec2(0, this.speed / PX));
     this.active = p;
@@ -400,6 +415,10 @@ export class Field {
   }
 
   private applyControls(dt: number, k: Controls) {
+    const press = !!k.hold && !this.holdDown;
+    this.holdDown = !!k.hold;
+    if (press && this.hold()) return;
+
     const body = this.active!.body;
     const spin = body.getAngularVelocity();
     if (this._rotation === 'quarter') {
@@ -454,9 +473,26 @@ export class Field {
     body.setAngularVelocity(Math.max(-C.QUARTER_SPIN, Math.min(C.QUARTER_SPIN, err * C.QUARTER_GAIN)));
   }
 
+  /**
+   * Puts the falling piece away: the held one (if any) comes in at the top in its place, otherwise
+   * the next one does. Once per piece, until one lands. True if it did.
+   */
+  private hold(): boolean {
+    const piece = this.active;
+    if (!piece || !this.holdEnabled || this.holdUsed || this.state !== 'playing') return false;
+    const back = this.heldKind;
+    this.heldKind = piece.kind;
+    this.holdUsed = true;
+    this.world.destroyBody(piece.body);
+    this.active = null;
+    this.spawn(back ?? undefined);
+    return true;
+  }
+
   private endBlock() {
     const piece = this.active!;
     this.active = null;
+    this.holdUsed = false;
     this.pieces.push(piece);
 
     if (piece.body.getPosition().y * PX < C.LOSING_Y) {

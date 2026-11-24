@@ -25,6 +25,8 @@ export interface Settings {
   pieces: PieceOrder;
   /** Free (turn to any angle) or 90° (quarter turns); each player's own, also online */
   rotation: Rotation;
+  /** Hold: put the falling piece away for later (online, the host's setting counts) */
+  hold: boolean;
 }
 
 export type TouchControls = 'drag' | 'buttons';
@@ -55,6 +57,7 @@ const DEFAULT_SETTINGS: Settings = {
   attacks: true,
   pieces: 'bag',
   rotation: 'free',
+  hold: false,
 };
 
 function read<T>(key: string): T | null {
@@ -83,6 +86,7 @@ export function loadSettings(): Settings {
   if (typeof s.attacks !== 'boolean') s.attacks = DEFAULT_SETTINGS.attacks;
   if (!PIECE_ORDERS.includes(s.pieces)) s.pieces = DEFAULT_SETTINGS.pieces;
   if (!ROTATIONS.includes(s.rotation)) s.rotation = DEFAULT_SETTINGS.rotation;
+  if (typeof s.hold !== 'boolean') s.hold = DEFAULT_SETTINGS.hold;
   return s;
 }
 

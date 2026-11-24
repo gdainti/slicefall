@@ -11,7 +11,7 @@ export type MatchError = 'not-found' | 'full' | 'busy' | 'limit' | 'offline' | '
 
 export interface MatchEvents {
   room?(code: string): void;
-  start?(seed: number, round: number, attacks: boolean, pieces: PieceOrder): void;
+  start?(seed: number, round: number, attacks: boolean, pieces: PieceOrder, hold: boolean): void;
   attack?(blocks: number): void;
   state?(msg: StateMsg): void;
   /** The other player topped out first: this player wins and should stop */
@@ -32,7 +32,7 @@ export class MatchSocket {
 
   /** `player`: the browser's random id (storage.ts), so the server's match log can tell players apart */
   constructor(
-    hello: { t: 'create'; player: string; attacks: boolean; pieces: PieceOrder } | { t: 'join'; code: string; player: string },
+    hello: { t: 'create'; player: string; attacks: boolean; pieces: PieceOrder; hold: boolean } | { t: 'join'; code: string; player: string },
   ) {
     // Relative, like the leaderboard calls, so the game works from any path
     const url = new URL('api/match', location.href);
@@ -61,8 +61,8 @@ export class MatchSocket {
           on.room?.(String(m.code));
           break;
         case 'start':
-          // A server from before the setting sends none, and then both players get random pieces
-          on.start?.(Number(m.seed), Number(m.round), m.attacks === true, m.pieces === 'bag' ? 'bag' : 'random');
+          // A server from before a setting sends none: then random pieces, and no hold
+          on.start?.(Number(m.seed), Number(m.round), m.attacks === true, m.pieces === 'bag' ? 'bag' : 'random', m.hold === true);
           break;
         case 'attack':
           if (Number.isInteger(m.n) && (m.n as number) > 0) on.attack?.(m.n as number);

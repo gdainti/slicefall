@@ -3,9 +3,10 @@
 // and streams what it looks like to the other, so nothing here knows about the game's physics.
 //
 // Client -> server (JSON text messages)
-//   { t: 'create', player?, attacks?, pieces? }  first message: open a room (player: the browser's
-//                                 random id; attacks: cutting rows sends blocks, the host's setting,
-//                                 on unless false; pieces: 'bag' for the 7-bag, otherwise random)
+//   { t: 'create', player?, attacks?, pieces?, hold? }  first message: open a room (player: the
+//                                 browser's random id; attacks: cutting rows sends blocks, the host's
+//                                 setting, on unless false; pieces: 'bag' for the 7-bag, otherwise
+//                                 random; hold: the hold piece can be used, off unless true)
 //   { t: 'join', code, player? }  first message: join a room
 //   { t: 'state', ... }           passed on to the other player as is
 //   { t: 'attack', n }            this player's cut sends the other n blocks (1 to MAX_ATTACK)
@@ -15,7 +16,7 @@
 //   { t: 'rematch' }              after a result: play again
 // Server -> client
 //   { t: 'room', code }           the room is open, waiting for the other player
-//   { t: 'start', seed, round, attacks, pieces }  both are in: start a round with this piece seed
+//   { t: 'start', seed, round, attacks, pieces, hold }  both are in: start a round with this piece seed
 //   { t: 'state', ... }           the other player's field
 //   { t: 'attack', n }            blocks from the other player
 //   { t: 'won' }                  the other player topped out first: this player wins, so stop
@@ -90,6 +91,8 @@ interface Room {
   loser: Player | null;
   /** How the seed turns into pieces (the host's choice); random for clients that don't say */
   pieces: 'bag' | 'random';
+  /** The hold piece can be used (the host's choice); off for clients that don't say */
+  hold: boolean;
 }
 
 /** Normalises a typed code: upper case, without spaces or dashes. Null when it can't be one. */
@@ -171,7 +174,7 @@ export class Matches {
         if (msg.t === 'create') {
           if (this.rooms.size >= this.maxRooms) return refuse('busy');
           me = { conn, id, score: null, tSpins: null, tSpinPoints: null, rematch: false, lastAttack: 0 };
-          room = this.open(me, msg.attacks !== false, msg.pieces === 'bag' ? 'bag' : 'random');
+          room = this.open(me, msg.attacks !== false, msg.pieces === 'bag' ? 'bag' : 'random', msg.hold === true);
           conn.send(JSON.stringify({ t: 'room', code: room.code }));
         } else {
           const code = normalizeCode(msg.code);
@@ -259,7 +262,7 @@ export class Matches {
     for (const conn of [...this.conns]) conn.close(CLOSE.goingAway, 'server restarting');
   }
 
-  private open(host: Player, attacks: boolean, pieces: Room['pieces']): Room {
+  private open(host: Player, attacks: boolean, pieces: Room['pieces'], hold: boolean): Room {
     let code = '';
     do {
       code = '';
@@ -275,6 +278,7 @@ export class Matches {
       logged: false,
       attacks,
       pieces,
+      hold,
       loser: null,
     };
     room.waitTimer = setTimeout(() => host.conn.close(CLOSE.normal, 'nobody joined'), this.waitMs);
@@ -294,7 +298,7 @@ export class Matches {
       p.tSpinPoints = null;
       p.rematch = false;
       p.lastAttack = 0;
-      p.conn.send(JSON.stringify({ t: 'start', seed, round: room.round, attacks: room.attacks, pieces: room.pieces }));
+      p.conn.send(JSON.stringify({ t: 'start', seed, round: room.round, attacks: room.attacks, pieces: room.pieces, hold: room.hold }));
     }
   }
 
