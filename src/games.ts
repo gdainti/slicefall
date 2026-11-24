@@ -91,10 +91,13 @@ export class SingleGame {
     this.field.start();
   }
 
-  /** The wells where pieces are falling right now (no cursor over them); empty when paused or over. */
+  /**
+   * The wells to keep the cursor off: from the start until the last piece has fallen out and the
+   * game-over popup is up; empty when paused.
+   */
   liveRects(): Rect[] {
     const s = this.field.state;
-    return !this.paused && (s === 'playing' || s === 'cutting') ? [wellRect(this.field, SINGLE_FIELD)] : [];
+    return !this.paused && s !== 'idle' && s !== 'over' ? [wellRect(this.field, SINGLE_FIELD)] : [];
   }
 
   private onEvent(e: FieldEvent) {
@@ -216,10 +219,13 @@ export class VersusGame {
     /* countdown runs in update() */
   }
 
-  /** The wells where pieces are falling right now (no cursor over them); empty when paused or over. */
+  /**
+   * The wells to keep the cursor off: both, from the start until the round's fall-out is done and
+   * the results are up; empty when paused or counting down.
+   */
   liveRects(): Rect[] {
-    if (this.paused || this.phase !== 'playing') return [];
-    return this.fields.flatMap((f, i) => (f.state === 'playing' || f.state === 'cutting' ? [wellRect(f, VersusGame.AT[i])] : []));
+    if (this.paused || this.phase === 'countdown' || this.phase === 'done') return [];
+    return this.fields.map((f, i) => wellRect(f, VersusGame.AT[i]));
   }
 
   private onEvent(player: 0 | 1, e: FieldEvent) {
@@ -388,10 +394,13 @@ export class OnlineGame {
     /* countdown runs in update() */
   }
 
-  /** This player's well while pieces fall in it (no cursor over it); empty once the round is over. */
+  /**
+   * This player's well, to keep the cursor off: from the start until the round's fall-out is done
+   * and the results are up; empty when paused or counting down.
+   */
   liveRects(): Rect[] {
-    const s = this.field.state;
-    return !this.paused && this.phase === 'playing' && (s === 'playing' || s === 'cutting') ? [wellRect(this.field, SINGLE_FIELD)] : [];
+    if (this.paused || this.phase === 'countdown' || this.phase === 'done') return [];
+    return [wellRect(this.field, SINGLE_FIELD)];
   }
 
   receive(msg: StateMsg) {
