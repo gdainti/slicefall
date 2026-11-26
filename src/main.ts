@@ -1312,7 +1312,8 @@ document.documentElement.addEventListener('pointerleave', () => (mouseAt = null)
 
 /**
  * Hides the mouse cursor while it's over a well where pieces are falling, so it never covers them;
- * it shows again over the side panel, and everywhere once the game is paused or over. Checked every
+ * it shows again over the side panel, when the game is paused, and once the pieces have fallen out
+ * and the game-over popup is up. Checked every
  * frame, since the game can start, pause or end while the mouse stays still.
  */
 function updateCursor() {
