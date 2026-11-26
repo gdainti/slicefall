@@ -4,7 +4,7 @@ import { Field, type FieldEvent, NO_CONTROLS, type Rotation } from './field';
 import { singleControls, versusControls } from './input';
 import { FieldEncoder, RemoteField, SEND_INTERVAL, type StateMsg } from './online';
 import { MIRROR, type PieceOrder, pieceSequence, seededKinds } from './pieces';
-import { COLORS, FONT, card, drawBackground, drawField, drawPreview, label, value } from './render';
+import { COLORS, FONT, card, drawBackground, drawField, drawHeld, drawPreview, label, value } from './render';
 import { highScores } from './storage';
 
 export const H = 640;
@@ -78,13 +78,19 @@ export class SingleGame {
     private onOver: () => void,
     pieces: PieceOrder = 'bag',
     rotation: Rotation = 'free',
+    hold = false,
   ) {
-    this.field = new Field({ pickKind: pieceSequence(pieces), emit: (e) => this.onEvent(e), rotation });
+    this.field = new Field({ pickKind: pieceSequence(pieces), emit: (e) => this.onEvent(e), rotation, hold });
     this.best = highScores()[0]?.score ?? 0;
   }
 
   get width() {
     return SINGLE_W;
+  }
+
+  /** The Hold box, where a tap holds (touch screens have no key for it); null with hold off */
+  get holdRect(): Rect | null {
+    return this.field.holdEnabled ? { x: 503, y: 388, w: 93, h: 170 } : null;
   }
 
   start() {
@@ -126,7 +132,6 @@ export class SingleGame {
 
     const px = 410;
     const pw = 186;
-    const cx = px + pw / 2;
 
     // The pause button is an HTML element over pauseRect (y 32–70); the cards sit below it.
     const top = 82;
@@ -147,17 +152,36 @@ export class SingleGame {
     value(ctx, String(Math.max(this.best, f.score)), px + pw - 18, top + 268, 16, 'right', COLORS.dim);
 
     card(ctx, px, top + 306, pw, 170);
-    label(ctx, 'Next', px + 18, top + 336);
-    if (!this.paused) drawPreview(ctx, f.nextKind, cx, top + 406, f.nextSpin, 0.78);
+    if (f.holdEnabled) {
+      // Next and Hold share the card, split down the middle
+      const half = pw / 2;
+      ctx.fillStyle = COLORS.cardLine;
+      ctx.fillRect(px + half, top + 322, 1, 138);
+      label(ctx, 'Next', px + half / 2, top + 336, 'center');
+      label(ctx, 'Hold', px + half * 1.5, top + 336, 'center');
+      if (!this.paused) {
+        drawPreview(ctx, f.nextKind, px + half / 2, top + 406, f.nextSpin, 0.6);
+        drawHeld(ctx, f, px + half * 1.5, top + 406, 0.6);
+      }
+    } else {
+      label(ctx, 'Next', px + 18, top + 336);
+      if (!this.paused) drawPreview(ctx, f.nextKind, px + pw / 2, top + 406, f.nextSpin, 0.78);
+    }
 
     ctx.fillStyle = COLORS.dim;
     ctx.font = `600 12px ${FONT}`;
     ctx.textAlign = 'left';
-    const hints = [
-      ['← →  move', '↓  push'],
-      ['Z X  rotate', 'M  mute'],
-      ['or  A D S  ·  J K rotate'],
-    ];
+    const hints = f.holdEnabled
+      ? [
+          ['← →  move', '↓  push'],
+          ['Z X  rotate', 'C  hold'],
+          ['or  A D S  ·  J K L', 'M  mute'],
+        ]
+      : [
+          ['← →  move', '↓  push'],
+          ['Z X  rotate', 'M  mute'],
+          ['or  A D S  ·  J K rotate'],
+        ];
     hints.forEach(([a, b], i) => {
       ctx.fillText(a, px + 18, 580 + i * 18);
       if (b) ctx.fillText(b, px + 112, 580 + i * 18);
@@ -193,6 +217,7 @@ export class VersusGame {
     attacks = false,
     pieces: PieceOrder = 'bag',
     rotation: Rotation = 'free',
+    hold = false,
   ) {
     // Both players get the same sequence; player 1 gets every piece mirrored (as in the original).
     const next = pieceSequence(pieces);
@@ -206,8 +231,8 @@ export class VersusGame {
     };
     const attack = (to: 0 | 1) => (attacks ? (blocks: number) => this.fields[to].receiveAttack(blocks) : undefined);
     this.fields = [
-      new Field({ pickKind: picker(0), emit: (e) => this.onEvent(0, e), attack: attack(1), rotation }),
-      new Field({ pickKind: picker(1), emit: (e) => this.onEvent(1, e), attack: attack(0), rotation }),
+      new Field({ pickKind: picker(0), emit: (e) => this.onEvent(0, e), attack: attack(1), rotation, hold }),
+      new Field({ pickKind: picker(1), emit: (e) => this.onEvent(1, e), attack: attack(0), rotation, hold }),
     ];
   }
 
@@ -309,7 +334,18 @@ export class VersusGame {
       label(ctx, `Player ${i + 1}`, cx, y + 30, 'center');
       value(ctx, String(f.score), cx, y + 76, 40, 'center');
       scoreLabel(ctx, f, 'score', cx, y + 96, 'center');
-      if (!this.paused && this.phase !== 'countdown') drawPreview(ctx, f.nextKind, cx, y + 140, f.nextSpin, 0.55);
+      if (f.holdEnabled) {
+        // Next on the right, hold on the left, small
+        ctx.fillStyle = COLORS.dim;
+        ctx.font = `700 10px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.fillText('HOLD', cx - 40, y + 120);
+        ctx.fillText('NEXT', cx + 40, y + 120);
+        if (!this.paused && this.phase !== 'countdown') {
+          drawHeld(ctx, f, cx - 40, y + 152, 0.42);
+          drawPreview(ctx, f.nextKind, cx + 40, y + 152, f.nextSpin, 0.42);
+        }
+      } else if (!this.paused && this.phase !== 'countdown') drawPreview(ctx, f.nextKind, cx, y + 140, f.nextSpin, 0.55);
     }
     card(ctx, px, top + 400, pw, 72);
     label(ctx, 'Wins', cx, top + 426, 'center');
@@ -318,7 +354,10 @@ export class VersusGame {
     ctx.fillStyle = COLORS.dim;
     ctx.font = `600 11px ${FONT}`;
     ctx.textAlign = 'center';
-    ['P1  A D S  ·  Q E rotate', 'P2  J L K  ·  U O rotate', '(P2 also ← → ↓  ·  , .)'].forEach((h, i) =>
+    const hints = this.fields[0].holdEnabled
+      ? ['P1  A D S  ·  Q E rotate  ·  W hold', 'P2  J L K  ·  U O rotate  ·  I hold', '(P2 also ← → ↓  ·  , .  ·  ↑ hold)']
+      : ['P1  A D S  ·  Q E rotate', 'P2  J L K  ·  U O rotate', '(P2 also ← → ↓  ·  , .)'];
+    hints.forEach((h, i) =>
       ctx.fillText(h, cx, 572 + i * 16),
     );
   }
@@ -377,9 +416,12 @@ export class OnlineGame {
     pieces: PieceOrder = 'random',
     /** This player's own setting: the other player's pieces arrive as positions, whatever theirs is */
     rotation: Rotation = 'free',
+    /** The room's setting: hold can be used */
+    hold = false,
   ) {
     this.field = new Field({
       rotation,
+      hold,
       pickKind: seededKinds(seed, pieces),
       emit: (e) => this.onEvent(e),
       attack: attacks ? (blocks) => this.send({ t: 'attack', n: blocks }) : undefined,
@@ -388,6 +430,11 @@ export class OnlineGame {
 
   get width() {
     return SINGLE_W;
+  }
+
+  /** The hold preview, where a tap holds (touch screens have no key for it); null with hold off */
+  get holdRect(): Rect | null {
+    return this.field.holdEnabled ? { x: 500, y: 82, w: 96, h: 60 } : null;
   }
 
   start() {
@@ -526,7 +573,13 @@ export class OnlineGame {
     card(ctx, px, y, pw, 96);
     scoreLabel(ctx, f, 'You', px + 18, y + 30);
     value(ctx, String(f.score), px + 18, y + 72, 30);
-    if (this.phase === 'playing') drawPreview(ctx, f.nextKind, px + pw - 42, y + 50, f.nextSpin, 0.4);
+    // Hold and next, small, in a row at the top right (the score sits below them)
+    if (this.phase !== 'playing') {
+      /* no previews */
+    } else if (f.holdEnabled) {
+      drawHeld(ctx, f, px + pw - 70, y + 32, 0.28);
+      drawPreview(ctx, f.nextKind, px + pw - 26, y + 32, f.nextSpin, 0.28);
+    } else drawPreview(ctx, f.nextKind, px + pw - 42, y + 50, f.nextSpin, 0.4);
 
     y = 190;
     card(ctx, px, y, pw, 356);

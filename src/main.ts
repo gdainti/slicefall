@@ -4,7 +4,7 @@ import { STEP } from './config';
 import { Demo } from './demo';
 import { logoHtml } from './logo';
 import { H, OnlineGame, SINGLE_W, SingleGame, VersusGame } from './games';
-import { clearTouch, pollPadPresses, setTouch, setTouchMove, setTouchSpin, suppressHeldKeys } from './input';
+import { clearTouch, pollPadPresses, pressTouchHold, setTouch, setTouchMove, setTouchSpin, suppressHeldKeys } from './input';
 import { COLORS, drawBackground, drawField, setTheme } from './render';
 import { ANON, type Boards, fetchBoards, NAME_MAX, normalizeName, recordGame, startSession, submitScore, type Submitted } from './api';
 import { CODE_LENGTH, type MatchError, MatchSocket, normalizeCode } from './net';
@@ -212,7 +212,7 @@ function modeInfo(mode: GameMode): string {
   const text: Record<GameMode, string> = {
     cut: 'Endless. A row is sliced out when it holds 8.1 blocks’ worth of area, cutting right through the pieces. Tighter rows score more. Every 10 rows the pieces fall faster.',
     versus: 'Two players, one keyboard (or two gamepads). Same pieces, mirrored for player 1, and rows are cut as in Cut. Whoever tops out first loses, and the game ends for both.',
-    online: 'Two players, each on their own device. Create a game and tell the other player its code, or join theirs with the code they give you. Same pieces for both; whoever tops out first loses, and the round ends for both. Pieces and Attacks: the setting of whoever creates the game counts; Rotation is each player’s own.',
+    online: 'Two players, each on their own device. Create a game and tell the other player its code, or join theirs with the code they give you. Same pieces for both; whoever tops out first loses, and the round ends for both. Pieces, Attacks and Hold: the setting of whoever creates the game counts; Rotation is each player’s own.',
   };
   let out = `<p class="info">${text[mode]}</p>`;
   out += `<p class="info">${
@@ -227,7 +227,9 @@ function modeInfo(mode: GameMode): string {
     out += `<p class="info">Attacks: cutting rows sends the other player single blocks. They blink at the top of their column, then drop between pieces once a whole piece has landed. Cut rows of your own first to cancel them.</p>`;
   }
   if (mode === 'versus') {
-    out += `<div class="keys"><div><b>Player 1</b>A D move · S down · Q E rotate</div><div><b>Player 2</b>J L move · K down · U O rotate<br><span>or ← → ↓ and , .</span></div></div>`;
+    out += settings.hold
+      ? `<div class="keys"><div><b>Player 1</b>A D move · S down · Q E rotate · W hold</div><div><b>Player 2</b>J L move · K down · U O rotate · I hold<br><span>or ← → ↓ ↑ and , .</span></div></div>`
+      : `<div class="keys"><div><b>Player 1</b>A D move · S down · Q E rotate</div><div><b>Player 2</b>J L move · K down · U O rotate<br><span>or ← → ↓ and , .</span></div></div>`;
   } else if (mode === 'cut') {
     out += scoreTable(-1);
   }
@@ -409,6 +411,16 @@ function modeScreen(focus?: number) {
       rotationChoice(),
       {
         type: 'choice',
+        label: 'Hold',
+        options: ['Off', 'On'],
+        get: () => (settings.hold ? 1 : 0),
+        set: (i) => {
+          settings.hold = i === 1;
+          saveSettings(settings);
+        },
+      },
+      {
+        type: 'choice',
         label: 'Music',
         options: [...TRACKS.map((t) => t.name), 'Off'],
         get: () => (settings.track < 0 ? TRACKS.length : settings.track),
@@ -420,7 +432,7 @@ function modeScreen(focus?: number) {
       },
       { type: 'button', label: 'Start', action: () => (settings.mode === 'online' ? showOnline() : startGame()), primary: true },
     ],
-    initial: focus ?? (versus ? 5 : 4),
+    initial: focus ?? (versus ? 6 : 5),
     html: () => modeInfo(settings.mode),
     onBack: showTitle,
     backButton: true,
@@ -554,11 +566,11 @@ function startGame() {
   suppressHeldKeys();
   if (settings.mode === 'versus') {
     audio.stopMusic();
-    game = new VersusGame(startMusic, showVersusResults, settings.attacks, settings.pieces, settings.rotation);
+    game = new VersusGame(startMusic, showVersusResults, settings.attacks, settings.pieces, settings.rotation, settings.hold);
     report({ type: 'start', mode: 'versus' });
   } else {
     session = startSession(playerId()).catch(() => undefined);
-    game = new SingleGame(onSingleOver, settings.pieces, settings.rotation);
+    game = new SingleGame(onSingleOver, settings.pieces, settings.rotation, settings.hold);
     game.start();
     startMusic(true);
     report({ type: 'start', mode: 'cut' });
@@ -883,7 +895,7 @@ function showConnecting(title: string, back: () => void) {
 
 function createMatch() {
   leaveMatch();
-  const socket = new MatchSocket({ t: 'create', player: playerId(), attacks: settings.attacks, pieces: settings.pieces });
+  const socket = new MatchSocket({ t: 'create', player: playerId(), attacks: settings.attacks, pieces: settings.pieces, hold: settings.hold });
   match = { socket, host: true, round: 0, wins: [0, 0], rematch: false, theyRematch: false, gone: null };
   socket.on = {
     room: showWaiting,
@@ -965,7 +977,7 @@ function joinMatch(code: string) {
 }
 
 /** Starts a round in the current room (the first one, or a rematch), with the room's attack and piece settings. */
-function startOnline(seed: number, round: number, attacks: boolean, pieces: PieceOrder) {
+function startOnline(seed: number, round: number, attacks: boolean, pieces: PieceOrder, hold: boolean) {
   const m = match;
   if (!m) return;
   m.round = round;
@@ -976,7 +988,7 @@ function startOnline(seed: number, round: number, attacks: boolean, pieces: Piec
   audio.unlock();
   audio.stopMusic();
   suppressHeldKeys();
-  const g = new OnlineGame(seed, m.wins, (msg) => m.socket.send(msg), startMusic, showOnlineResults, attacks, pieces, settings.rotation);
+  const g = new OnlineGame(seed, m.wins, (msg) => m.socket.send(msg), startMusic, showOnlineResults, attacks, pieces, settings.rotation, hold);
   game = g;
   m.socket.on = {
     state: (s) => g.receive(s),
@@ -1132,6 +1144,19 @@ window.addEventListener('pagehide', () => reportLeave('page'));
 // Keep the button from taking keyboard focus, so Space/Enter never "click" it again later.
 pauseBtn.addEventListener('pointerdown', (e) => e.preventDefault());
 pauseBtn.addEventListener('click', () => pause());
+
+// Tapping (or clicking) the Hold box holds: touch screens have no key for it.
+canvas.addEventListener('pointerdown', (e) => {
+  if (state !== 'game' || !game || game.type === 'versus' || game.paused) return;
+  const box = canvas.getBoundingClientRect();
+  const x = (e.clientX - box.left) / cssScale;
+  const y = (e.clientY - box.top) / cssScale;
+  const r = game.holdRect;
+  if (r && x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
+    e.preventDefault();
+    pressTouchHold();
+  }
+});
 
 touchEl.querySelectorAll<HTMLButtonElement>('button[data-a]').forEach((btn) => {
   const action = btn.dataset.a as 'left' | 'right' | 'down' | 'rotL' | 'rotR';

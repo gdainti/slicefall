@@ -334,6 +334,11 @@ Online mode uses the 1-player keys, gamepad and touch controls.
 | Push down     | ↓ or S                | S         | K or ↓              |
 | Rotate left   | Z or J                | Q         | U or ,              |
 | Rotate right  | X or K                | E         | O or .              |
+| Hold          | C, Shift or L         | W         | I, ↑ or /           |
+
+Hold puts the falling piece away and brings the next one; with a piece already held, the two swap.
+Once per piece: it can be used again after a piece lands. On touch screens, tap the Hold box.
+Hold is off by default: turn it on with Hold on the mode screen (online, the host's setting counts).
 
 Hotkeys (all modes; Online has no pause, so there P / Esc / Enter ask whether to leave):
 
@@ -347,7 +352,7 @@ Hotkeys (all modes; Online has no pause, so there P / Esc / Enter ask whether to
 | M                | Mute / unmute all sound |
 | F                | Fullscreen |
 
-Gamepads work too (d-pad/stick to move, A/RB rotate right, B/X/LB rotate left, Start pauses;
+Gamepads work too (d-pad/stick to move, A/RB rotate right, B/X/LB rotate left, Y holds, Start pauses;
 in Versus, pad 1 is player 1 and pad 2 is player 2). Touch devices get on-screen buttons.
 
 Options → Graphics switches between the default look and Retro: four greys, 8×8 pixel-art blocks

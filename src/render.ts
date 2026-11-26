@@ -271,11 +271,13 @@ function drawBlockShape(ctx: CanvasRenderingContext2D, shape: Poly, kind: number
     ctx.fill();
   }
   if (hi) {
+    // Relative to the alpha already set, so a dimmed piece (drawHeld) stays dimmed
+    const was = ctx.globalAlpha;
     ctx.fillStyle = shade.light;
-    ctx.globalAlpha = theme.inner;
+    ctx.globalAlpha = was * theme.inner;
     pathPoly(ctx, hi);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = was;
   }
 }
 
@@ -450,6 +452,25 @@ export function drawPreview(ctx: CanvasRenderingContext2D, kind: number, cx: num
   ctx.translate(-c.x, -c.y);
   drawBlocks(ctx, PIECE_SHAPES[kind], kind);
   ctx.restore();
+}
+
+/**
+ * The held piece, still and upright, dimmed while hold can't be used again (until a piece lands);
+ * an empty outline while nothing is held.
+ */
+export function drawHeld(ctx: CanvasRenderingContext2D, f: { heldKind: number | null; holdUsed: boolean }, cx: number, cy: number, scale = 0.8) {
+  if (f.heldKind === null) {
+    ctx.strokeStyle = COLORS.cardLine;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    const s = 64 * scale;
+    ctx.strokeRect(cx - s / 2, cy - s / 2, s, s);
+    ctx.setLineDash([]);
+    return;
+  }
+  if (f.holdUsed) ctx.globalAlpha = 0.4;
+  drawPreview(ctx, f.heldKind, cx, cy, 0, scale);
+  ctx.globalAlpha = 1;
 }
 
 export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
